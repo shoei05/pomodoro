@@ -10,12 +10,17 @@ Tailwind CSS を使ったシンプルなポモドーロタイマーです。横�
 ### GitHub Pages（自動デプロイ）
 このリポジトリは GitHub Actions で `main` ブランチから GitHub Pages に自動デプロイされます。
 
-- 初回のデプロイ完了後、公開 URL は次になります（約1～2分かかることがあります）。
-  - https://shoei05.github.io/pomodoro/
+初回のみ、以下の”1回だけの設定”が必要です：
+
+1. GitHub のリポジトリ画面 → `Settings` → `Pages`
+2. `Build and deployment` → `Source` を `GitHub Actions` に変更（保存）
+
+以後は push するだけで公開が更新されます。公開 URL：
+
+- https://shoei05.github.io/pomodoro/
 
 ### ローカル開発
 特別なビルドは不要です。VS Code の Live Server 等で開くだけでOKです。
 
 ### ライセンス
 特に指定がなければ、必要に応じて追記してください。
-
