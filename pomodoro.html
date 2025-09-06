@@ -30,7 +30,7 @@
         
         .timer-circle {
             transform: rotate(-90deg);
-            transition: stroke-dashoffset 1s linear;
+            transition: none; /* requestAnimationFrameで更新するため */
         }
         
         .pulse {
@@ -178,7 +178,11 @@
                 this.isRunning = false;
                 this.isWorkSession = true;
                 this.completedSessions = 0;
-                this.timer = null;
+                this.timer = null; // 旧インターバル（未使用）
+                this.rafId = null; // アニメーション用
+                this.endTimestamp = null; // このセッションの終了時刻(ms)
+                this.sessionTotalTime = this.workTime; // セッション総秒数
+                this.audioCtx = null; // Web Audio
                 
                 this.initializeElements();
                 this.bindEvents();
@@ -197,12 +201,42 @@
                 // 円周長を計算してダッシュ設定を初期化
                 this.radius = 90;
                 this.circumference = 2 * Math.PI * this.radius;
-                const dash = `${this.circumference} ${this.circumference}`; // 互換性の高い2値指定
+                const dash = `${this.circumference}`;
                 this.progressCircle.setAttribute('stroke-dasharray', dash);
-                this.progressCircle.setAttribute('stroke-dashoffset', `${this.circumference}`);
-                // 念のため style にも反映（ブラウザ差吸収）
-                this.progressCircle.style.strokeDasharray = dash;
-                this.progressCircle.style.strokeDashoffset = `${this.circumference}`;
+                this.setRingInitial();
+            }
+
+            setRingInitial() {
+                const offset = this.isWorkSession ? this.circumference : 0;
+                this.progressCircle.setAttribute('stroke-dashoffset', `${offset}`);
+                this.progressCircle.style.strokeDashoffset = `${offset}`;
+            }
+
+            initAudio() {
+                if (this.audioCtx) return;
+                const AC = window.AudioContext || window.webkitAudioContext;
+                if (!AC) return;
+                try {
+                    this.audioCtx = new AC();
+                } catch (_) {
+                    this.audioCtx = null;
+                }
+            }
+
+            beep() {
+                if (!this.audioCtx) return;
+                const ctx = this.audioCtx;
+                const now = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, now);
+                gain.gain.setValueAtTime(0.0001, now);
+                gain.gain.linearRampToValueAtTime(0.2, now + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.7);
+                osc.connect(gain).connect(ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.72);
             }
             
             bindEvents() {
@@ -235,15 +269,17 @@
                 this.isRunning = true;
                 this.startPauseBtn.textContent = '⏸️';
                 this.startPauseBtn.classList.add('pulse');
-                
-                this.timer = setInterval(() => {
-                    this.currentTime--;
-                    this.updateDisplay();
-                    
-                    if (this.currentTime <= 0) {
-                        this.completeSession();
-                    }
-                }, 1000);
+                // audio 初期化＆再開（iOS対応）
+                this.initAudio();
+                if (this.audioCtx && this.audioCtx.state === 'suspended') {
+                    this.audioCtx.resume().catch(() => {});
+                }
+                // セッション情報を確定
+                this.sessionTotalTime = this.isWorkSession ? this.workTime : this.breakTime;
+                this.endTimestamp = performance.now() + this.currentTime * 1000;
+                // RAF開始
+                if (this.rafId) cancelAnimationFrame(this.rafId);
+                this.rafId = requestAnimationFrame(this.animate.bind(this));
             }
             
             pauseTimer() {
@@ -251,18 +287,23 @@
                 this.startPauseBtn.textContent = '▶️';
                 this.startPauseBtn.classList.remove('pulse');
                 clearInterval(this.timer);
+                if (this.rafId) {
+                    cancelAnimationFrame(this.rafId);
+                    this.rafId = null;
+                }
             }
             
             resetTimer() {
                 this.pauseTimer();
                 this.currentTime = this.isWorkSession ? this.workTime : this.breakTime;
+                this.setRingInitial();
                 this.updateDisplay();
             }
             
             completeSession() {
                 this.pauseTimer();
-                
-                if (this.isWorkSession) {
+                const wasWork = this.isWorkSession;
+                if (wasWork) {
                     this.completedSessions++;
                     this.completedSessionsDisplay.textContent = this.completedSessions;
                     this.completedSessionsDisplay.classList.add('fade-in');
@@ -273,10 +314,13 @@
                 this.isWorkSession = !this.isWorkSession;
                 this.currentTime = this.isWorkSession ? this.workTime : this.breakTime;
                 this.updateSessionButtons();
+                this.setRingInitial();
                 this.updateDisplay();
                 
                 // 完了通知
                 this.showNotification();
+                // 作業25分終了時のみビープ
+                if (wasWork) this.beep();
             }
             
             switchToWork() {
@@ -284,6 +328,7 @@
                     this.isWorkSession = true;
                     this.currentTime = this.workTime;
                     this.updateSessionButtons();
+                    this.setRingInitial();
                     this.updateDisplay();
                 }
             }
@@ -293,6 +338,7 @@
                     this.isWorkSession = false;
                     this.currentTime = this.breakTime;
                     this.updateSessionButtons();
+                    this.setRingInitial();
                     this.updateDisplay();
                 }
             }
@@ -315,18 +361,32 @@
                 const minutes = Math.floor(this.currentTime / 60);
                 const seconds = this.currentTime % 60;
                 this.timeDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                
+            }
 
-                
-                // プログレス円の更新
-                const totalTime = this.isWorkSession ? this.workTime : this.breakTime;
-                const progress = (totalTime - this.currentTime) / totalTime; // 0.0→1.0
-                // 作業: 色が増える（C→0）、休憩: 色が減る（0→C）
+            animate(now) {
+                if (!this.isRunning) return;
+                const totalMs = this.sessionTotalTime * 1000;
+                const remainingMs = Math.max(0, this.endTimestamp - now);
+                // 残り秒（表示用）
+                const remainingSec = Math.ceil(remainingMs / 1000);
+                if (remainingSec !== this.currentTime) {
+                    this.currentTime = remainingSec;
+                    this.updateDisplay();
+                }
+                // 進捗（リング用）
+                const progress = (totalMs - remainingMs) / totalMs; // 0→1
                 const offset = this.isWorkSession
                     ? this.circumference * (1 - progress)
                     : this.circumference * progress;
                 this.progressCircle.setAttribute('stroke-dashoffset', `${offset}`);
                 this.progressCircle.style.strokeDashoffset = `${offset}`;
+
+                if (remainingMs <= 0) {
+                    // 終了
+                    this.completeSession();
+                    return;
+                }
+                this.rafId = requestAnimationFrame(this.animate.bind(this));
             }
             
             showNotification() {
