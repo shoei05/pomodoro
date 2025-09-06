@@ -197,7 +197,11 @@
                 // 円周長を計算してダッシュ設定を初期化
                 this.radius = 90;
                 this.circumference = 2 * Math.PI * this.radius;
-                this.progressCircle.style.strokeDasharray = `${this.circumference}`;
+                const dash = `${this.circumference} ${this.circumference}`; // 互換性の高い2値指定
+                this.progressCircle.setAttribute('stroke-dasharray', dash);
+                this.progressCircle.setAttribute('stroke-dashoffset', `${this.circumference}`);
+                // 念のため style にも反映（ブラウザ差吸収）
+                this.progressCircle.style.strokeDasharray = dash;
                 this.progressCircle.style.strokeDashoffset = `${this.circumference}`;
             }
             
@@ -321,6 +325,7 @@
                 const offset = this.isWorkSession
                     ? this.circumference * (1 - progress)
                     : this.circumference * progress;
+                this.progressCircle.setAttribute('stroke-dashoffset', `${offset}`);
                 this.progressCircle.style.strokeDashoffset = `${offset}`;
             }
             
