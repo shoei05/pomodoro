@@ -30,6 +30,8 @@
         
         .timer-circle {
             transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+            transform-box: fill-box;
             transition: none; /* requestAnimationFrameで更新するため */
         }
         
@@ -127,8 +129,9 @@
                         stroke-width="12"
                         stroke-linecap="round"
                         class="timer-circle"
-                        stroke-dasharray="565.48"
-                        stroke-dashoffset="565.48"
+                        pathLength="100"
+                        stroke-dasharray="100 100"
+                        stroke-dashoffset="100"
                     />
                 </svg>
                 
@@ -198,11 +201,10 @@
                 this.completedSessionsDisplay = document.getElementById('completed-sessions');
                 this.progressCircle = document.getElementById('progress-circle');
 
-                // 円周長を計算してダッシュ設定を初期化
-                this.radius = 90;
-                this.circumference = 2 * Math.PI * this.radius;
-                const dash = `${this.circumference}`;
-                this.progressCircle.setAttribute('stroke-dasharray', dash);
+                // ダッシュ設定（pathLength=100 を採用して互換性を高める）
+                this.circumference = 100; // 正規化
+                this.progressCircle.setAttribute('pathLength', '100');
+                this.progressCircle.setAttribute('stroke-dasharray', '100 100');
                 this.setRingInitial();
             }
 
