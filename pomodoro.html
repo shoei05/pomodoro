@@ -321,8 +321,8 @@
                 
                 // 完了通知
                 this.showNotification();
-                // 作業25分終了時のみビープ
-                if (wasWork) this.beep();
+                // 作業25分・休憩5分の終了時にビープ
+                this.beep();
             }
             
             switchToWork() {
