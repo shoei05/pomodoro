@@ -26,14 +26,6 @@
             transition: stroke-dasharray 1s ease-in-out;
         }
         
-        /* タイマー円のサイズを常に正方形に保つ */
-        .timer-circle-size {
-            width: min(80vmin, 22rem);
-            height: auto;            /* SVGのアスペクト比維持 */
-            aspect-ratio: 1 / 1;     /* 念のため */
-            display: block;
-        }
-        
         .pulse {
             animation: pulse 2s infinite;
         }
@@ -50,6 +42,16 @@
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .timer-circle-size {
+            width: min(80vmin, 22rem);
+            height: auto;
+            aspect-ratio: 1/1;
+        }
+        
+        .time-text {
+            font-size: 3rem;
         }
         
         /* 横長画面対応 */
@@ -71,12 +73,6 @@
                 width: auto;
                 max-width: 280px;
             }
-            
-            /* 円サイズは vmin ベースで自動調整するため指定不要 */
-            
-            .time-text {
-                font-size: 2rem;
-            }
         }
         
         @media (orientation: portrait) {
@@ -91,12 +87,6 @@
             
             .controls-section {
                 width: 100%;
-            }
-            
-            /* 円サイズは vmin ベースで自動調整するため指定不要 */
-            
-            .time-text {
-                font-size: 3rem;
             }
         }
     </style>
@@ -137,8 +127,7 @@
                 
                 <!-- 時間表示 -->
                 <div class="absolute inset-0 flex flex-col items-center justify-center">
-                    <div id="time-display" class="time-text font-bold text-gray-800 mb-1">25:00</div>
-                    <div id="session-icon" class="text-2xl" aria-live="polite">⏱</div>
+                    <div id="time-display" class="time-text font-bold text-gray-800">25:00</div>
                 </div>
             </div>
             
@@ -156,7 +145,7 @@
                 
                 <!-- セッション切り替え -->
                 <div class="flex justify-center space-x-4 mb-6">
-                    <button id="work-btn" class="bg-pink-100 text-pink-700 font-medium w-14 h-14 rounded-full transition-all duration-200 border-2 border-pink-200 active:bg-pink-200 flex items-center justify-center text-2xl" aria-label="作業モード">
+                    <button id="work-btn" class="bg-pink-100 text-pink-700 font-medium w-14 h-14 rounded-full transition-all duration-200 border-2 border-pink-200 active:bg-pink-200 flex items-center justify-center text-2xl">
                         ⏱
                     </button>
                     <button id="break-btn" class="bg-gray-100 text-gray-600 font-medium w-14 h-14 rounded-full transition-all duration-200 border-2 border-gray-200 hover:bg-gray-200 active:bg-gray-300 flex items-center justify-center text-2xl">
@@ -191,7 +180,6 @@
             
             initializeElements() {
                 this.timeDisplay = document.getElementById('time-display');
-                this.sessionIcon = document.getElementById('session-icon');
                 this.startPauseBtn = document.getElementById('start-pause-btn');
                 this.resetBtn = document.getElementById('reset-btn');
                 this.workBtn = document.getElementById('work-btn');
@@ -201,43 +189,22 @@
             }
             
             bindEvents() {
-                // タッチデバイス対応
-                this.addTouchEvents(this.startPauseBtn, () => this.toggleTimer());
-                this.addTouchEvents(this.resetBtn, () => this.resetTimer());
-                this.addTouchEvents(this.workBtn, () => this.switchToWork());
-                this.addTouchEvents(this.breakBtn, () => this.switchToBreak());
+                // 画面全体タップでタイマー操作
+                document.addEventListener('click', (e) => {
+                    // ボタン以外の場所をタップした場合
+                    if (!e.target.closest('button')) {
+                        this.toggleTimer();
+                    }
+                });
+                
+                // ボタン個別の操作
+                this.startPauseBtn.addEventListener('click', () => this.toggleTimer());
+                this.resetBtn.addEventListener('click', () => this.resetTimer());
+                this.workBtn.addEventListener('click', () => this.switchToWork());
+                this.breakBtn.addEventListener('click', () => this.switchToBreak());
             }
             
-            addTouchEvents(element, callback) {
-                let touchStarted = false;
-                
-                element.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    touchStarted = true;
-                    element.style.transform = 'scale(0.95)';
-                }, { passive: false });
-                
-                element.addEventListener('touchend', (e) => {
-                    e.preventDefault();
-                    if (touchStarted) {
-                        element.style.transform = '';
-                        callback();
-                        touchStarted = false;
-                    }
-                }, { passive: false });
-                
-                element.addEventListener('touchcancel', () => {
-                    element.style.transform = '';
-                    touchStarted = false;
-                });
-                
-                // マウスイベントも保持
-                element.addEventListener('click', (e) => {
-                    if (!touchStarted) {
-                        callback();
-                    }
-                });
-            }
+
             
             toggleTimer() {
                 if (this.isRunning) {
@@ -332,7 +299,7 @@
                 const seconds = this.currentTime % 60;
                 this.timeDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
                 
-                this.sessionIcon.textContent = this.isWorkSession ? '⏱' : '☕';
+
                 
                 // プログレス円の更新
                 const totalTime = this.isWorkSession ? this.workTime : this.breakTime;
@@ -351,22 +318,22 @@
                     document.body.style.backgroundColor = '';
                 }, 1000);
                 
-                // ブラウザ通知（許可されている場合）
-                if (Notification.permission === 'granted') {
-                    new Notification('ポモドーロタイマー', {
-                        body: message
-                    });
+                // ブラウザ通知（対応環境かつ許可されている場合のみ）
+                if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                    try {
+                        new Notification('ポモドーロタイマー', { body: message });
+                    } catch (_) {}
                 }
             }
         }
         
-        // 通知許可を要求
-        if (Notification.permission === 'default') {
-            Notification.requestPermission();
+        // 通知許可を要求（iOS Safari 等で Notification が未対応のケースを考慮）
+        if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+            Notification.requestPermission().catch(() => {});
         }
         
         // タイマーを初期化
         const pomodoroTimer = new PomodoroTimer();
     </script>
-  </body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97aa548636afb557',t:'MTc1NzEyMzU4MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
