@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ポモドーロタイマー</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="theme-color" content="#c5487b">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         
@@ -310,7 +313,10 @@
                 // プログレス円の更新
                 const totalTime = this.isWorkSession ? this.workTime : this.breakTime;
                 const progress = (totalTime - this.currentTime) / totalTime; // 0.0→1.0
-                const offset = this.circumference * (1 - progress);
+                // 作業: 色が増える（C→0）、休憩: 色が減る（0→C）
+                const offset = this.isWorkSession
+                    ? this.circumference * (1 - progress)
+                    : this.circumference * progress;
                 this.progressCircle.style.strokeDashoffset = `${offset}`;
             }
             
