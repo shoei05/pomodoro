@@ -23,7 +23,7 @@
         
         .timer-circle {
             transform: rotate(-90deg);
-            transition: stroke-dasharray 1s ease-in-out;
+            transition: stroke-dashoffset 1s linear;
         }
         
         .pulse {
@@ -120,8 +120,8 @@
                         stroke-width="8"
                         stroke-linecap="round"
                         class="timer-circle"
-                        stroke-dasharray="565.48 565.48"
-                        stroke-dashoffset="0"
+                        stroke-dasharray="565.48"
+                        stroke-dashoffset="565.48"
                     />
                 </svg>
                 
@@ -186,6 +186,12 @@
                 this.breakBtn = document.getElementById('break-btn');
                 this.completedSessionsDisplay = document.getElementById('completed-sessions');
                 this.progressCircle = document.getElementById('progress-circle');
+
+                // 円周長を計算してダッシュ設定を初期化
+                this.radius = 90;
+                this.circumference = 2 * Math.PI * this.radius;
+                this.progressCircle.style.strokeDasharray = `${this.circumference}`;
+                this.progressCircle.style.strokeDashoffset = `${this.circumference}`;
             }
             
             bindEvents() {
@@ -303,10 +309,9 @@
                 
                 // プログレス円の更新
                 const totalTime = this.isWorkSession ? this.workTime : this.breakTime;
-                const progress = (totalTime - this.currentTime) / totalTime;
-                const circumference = 2 * Math.PI * 90;
-                const offset = circumference * (1 - progress);
-                this.progressCircle.style.strokeDashoffset = offset;
+                const progress = (totalTime - this.currentTime) / totalTime; // 0.0→1.0
+                const offset = this.circumference * (1 - progress);
+                this.progressCircle.style.strokeDashoffset = `${offset}`;
             }
             
             showNotification() {
@@ -320,14 +325,14 @@
                 
                 // ブラウザ通知（対応環境かつ許可されている場合のみ）
                 if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-                    try {
-                        new Notification('ポモドーロタイマー', { body: message });
-                    } catch (_) {}
+                    new Notification('ポモドーロタイマー', {
+                        body: message
+                    });
                 }
             }
         }
         
-        // 通知許可を要求（iOS Safari 等で Notification が未対応のケースを考慮）
+        // 通知許可を要求（対応環境のみ）
         if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
             Notification.requestPermission().catch(() => {});
         }
@@ -335,5 +340,5 @@
         // タイマーを初期化
         const pomodoroTimer = new PomodoroTimer();
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97aa548636afb557',t:'MTc1NzEyMzU4MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+  </body>
 </html>
